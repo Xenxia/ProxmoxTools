@@ -1,8 +1,32 @@
 #!/usr/bin/env python3
 
+# MIT License
+
+# Copyright (c) 2020 Xenxia
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import os, sys, argparse
 from os import system, name
 from time import sleep
+
+version="1.0.0"
 
 #? Color ------------------------------------------------------------------------------->
 class co:
@@ -18,16 +42,21 @@ class co:
     Cyan         = "\033[36m"
 
 #? Argument parser ------------------------------------------------------------------------------->
-parser = argparse.ArgumentParser()
-parser.add_argument("-l", "--list", action="store_true", help ="List vm")
-parser.add_argument("-c", "--command", action="store_true", help ="Open comande line")
+parser = argparse.ArgumentParser(description="Application to merge the 'qm' and 'pct' commands from proxmox")
+parser.add_argument('-v', '--version', action='version', version=co.Green+version+co.Default)
+parser.add_argument("-l", "--list", action="store_true", help ="List all vm")
 parser.add_argument("-start", type=int, metavar='VMID', help ="Start vm")
 parser.add_argument("-stop", type=int, metavar='VMID', help ="Stop vm")
+parser.add_argument("-reboot", type=int, metavar='VMID', help ="Reboot vm")
+parser.add_argument("-console", type=int, metavar='VMID', help ="Open console vm 'for lxc vm'")
 args = parser.parse_args()
 
 #? Fonction ----------------------------------------------------------------------------------------->
 def Clear():
     _ = system('clear')
+
+def Exit():
+    raise SystemExit(0)
 
 def List_vm():
 
@@ -94,8 +123,8 @@ def Check_IDVM(ID_vm):
     if int(ID_vm) >= 100 and int(ID_vm) <= 999:
         return ID_vm
     
-    print(co.LightRed+str(ID_vm)+' ID incorect'+co.Reset)
-    raise SystemExit(0)
+    print(co.Red+str(ID_vm)+' ID incorect'+co.Reset)
+    Exit()
 
 def Search_VM(ID_vm):
 
@@ -112,30 +141,38 @@ def Start_VM(vm):
     if vm == None:
         print(co.Red+"No vm"+co.Reset)
 
-    elif vm["Tag"] == "LXC":
-        print(co.Yellow+"Start Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
-        os.system('pct start '+ str(vm["VM_ID"]))
-        print(co.Green+"Started Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+    else:
+        if vm["Status"] == "running":
+            print(co.Magenta+"VM Already "+co.Green+"started "+co.Magenta+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
-    elif vm["Tag"] == "QM":
-        print(co.Yellow+"Start VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
-        os.system('qm start '+ str(vm["VM_ID"]))
-        print(co.Green+"Started VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+        elif vm["Tag"] == "LXC":
+            print(co.Yellow+"Start Container "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
+            os.system('pct start '+ str(vm["VM_ID"]))
+            print(co.Green+"Started Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+
+        elif vm["Tag"] == "QM":
+            print(co.Yellow+"Start VM "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
+            os.system('qm start '+ str(vm["VM_ID"]))
+            print(co.Green+"Started VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
 def Stop_VM(vm):
 
     if vm == None:
         print(co.Red+"No vm"+co.Reset)
 
-    elif vm["Tag"] == "LXC":
-        print(co.Yellow+"Stop Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
-        os.system('pct stop '+ str(vm["VM_ID"]))
-        print(co.Green+"Stopped Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+    else:
+        if vm["Status"] == "stopped":
+            print(co.Magenta+"VM Already "+co.Red+"stopped "+co.Magenta+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
-    elif vm["Tag"] == "QM":
-        print(co.Yellow+"Stop VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
-        os.system('qm stop '+ str(vm["VM_ID"]))
-        print(co.Green+"Stopped VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+        elif vm["Tag"] == "LXC":
+            print(co.Yellow+"Stop Container "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
+            os.system('pct stop '+ str(vm["VM_ID"]))
+            print(co.Green+"Stopped Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+
+        elif vm["Tag"] == "QM":
+            print(co.Yellow+"Stop VM "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
+            os.system('qm stop '+ str(vm["VM_ID"]))
+            print(co.Green+"Stopped VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
 def Reboot_VM(vm):
 
@@ -143,12 +180,12 @@ def Reboot_VM(vm):
         print(co.Red+"No vm"+co.Reset)
 
     elif vm["Tag"] == "LXC":
-        print(co.Yellow+"Reboot Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+        print(co.Yellow+"Reboot Container "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
         os.system('pct reboot '+ str(vm["VM_ID"]))
         print(co.Green+"Rebooted Container "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
     elif vm["Tag"] == "QM":
-        print(co.Yellow+"Reboot VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
+        print(co.Yellow+"Reboot VM "+vm["Name"]+':'+vm["VM_ID"]+co.Default)
         os.system('qm reboot '+ str(vm["VM_ID"]))
         print(co.Green+"Rebooted VM "+vm["Name"]+':'+vm["VM_ID"]+co.Reset)
 
@@ -159,7 +196,6 @@ def Console_VM(vm):
         print(co.Red+"No vm"+co.Reset)
 
     elif vm["Tag"] == "LXC":
-
         print(co.Yellow+"Exit the console Ctrl+a q"+co.Reset)
         os.system('pct console '+ str(vm["VM_ID"])+' -escape ^a')
         Clear()
@@ -169,22 +205,36 @@ def Console_VM(vm):
 
 #? Start ----------------------------------------------------------------------------------------->
 
-Clear()
-print("\n")
+print()
 
 if args.start:
 
     vm_info = Search_VM(Check_IDVM(args.start))
     Start_VM(vm_info)
-    raise SystemExit(0)
+    Exit()
 
 if args.stop:
 
     vm_info = Search_VM(Check_IDVM(args.stop))
     Stop_VM(vm_info)
-    raise SystemExit(0)
+    Exit()
+
+if args.reboot:
+
+    vm_info = Search_VM(Check_IDVM(args.reboot))
+    Reboot_VM(vm_info)
+    Exit()
+
+if args.console:
+
+    vm_info = Search_VM(Check_IDVM(args.console))
+    Console_VM(vm_info)
+    Exit()
 
 if args.list:
+
+    Clear()
+    print("\n")
 
     vm_dico = List_vm()
 
@@ -208,47 +258,13 @@ if args.list:
             print(dash)
             print(form_header.format(*vm_print))
             print(dash)
-            
-
-    print(co.Blue+"\nenter '0' to exit"+co.Reset)
-
-    choiced_vm = input('Enter VM ID : ')
-
-    if choiced_vm == '0':
-        raise SystemExit(0)
-
-    vm_info = Search_VM(Check_IDVM(choiced_vm))
-
-    Clear()
-    print('\n'+dash)
-    print(co.Cyan+'VM selected'+co.Default)
-    print('ID : '+vm_info['VM_ID'])
-    print('Name : '+vm_info['Name'])
-    if vm_info['Status'] == 'stopped':
-        print('Status : '+co.Red+'Stopped'+co.Default)
-    elif vm_info['Status'] == 'running':
-        print('Status : '+co.Green+'Running'+co.Default)
-    print(dash)
-    print('1 : Start')
-    print('2 : Stop')
-    print('3 : Restart')
-    print('4 : Console')
-
-    choiced_Action = input('\nAction : ')
-    print('\n')
-
-    if choiced_Action == '1':
-        Start_VM(vm_info)
-    elif choiced_Action == '2':
-        Stop_VM(vm_info)
-    elif choiced_Action == '3':
-        Reboot_VM(vm_info)
-    elif choiced_Action == '4':
-        Console_VM(vm_info)
     
-    raise SystemExit(0)
+    print(co.Reset)
 
-if args.command:
-    print('c')
+    Exit()
 
-# print('finish')
+print(co.Red+'No argument detected'+co.Reset)
+
+parser.print_help()
+
+print('\n')
