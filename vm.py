@@ -26,11 +26,11 @@ import os, sys, argparse
 from os import system, name
 from time import sleep
 
-version="1.0.0"
+version="1.1.0"
 
 #? Color ------------------------------------------------------------------------------->
 class co:
-    Reset = "\033[0m"+"\n"
+    Reset = "\u001b[0m"+"\n"
 
     Default      = "\u001b[0m"
     Black        = "\u001b[38;5;0m"
@@ -38,17 +38,36 @@ class co:
     Green        = "\u001b[38;5;82m"
     Yellow       = "\u001b[38;5;226m"
     Blue         = "\u001b[38;5;27m"
-    Magenta      = "\033[35m"
-    Cyan         = "\033[36m"
+    Magenta      = "\u001b[38;5;207m"
+    Cyan         = "\u001b[38;5;51m"
 
 #? Argument parser ------------------------------------------------------------------------------->
-parser = argparse.ArgumentParser(description="Application to merge the 'qm' and 'pct' commands from proxmox")
-parser.add_argument('-v', '--version', action='version', version=co.Green+version+co.Default)
-parser.add_argument("-l", "--list", action="store_true", help ="List all vm")
-parser.add_argument("-start", type=int, metavar='VMID', help ="Start vm")
-parser.add_argument("-stop", type=int, metavar='VMID', help ="Stop vm")
-parser.add_argument("-reboot", type=int, metavar='VMID', help ="Reboot vm")
-parser.add_argument("-console", type=int, metavar='VMID', help ="Open console vm 'for lxc vm'")
+parser = argparse.ArgumentParser(description="Application to merge the 'qm' and 'pct' commands from proxmox",
+                                allow_abbrev=False,
+                                prog='vm',
+                                usage="%(prog)s"
+                                )
+
+subparsers = parser.add_subparsers(title ='Commande', 
+                                  dest='Command_Name',
+                                  )
+
+parser_start = subparsers.add_parser('start', help="{VMID} Start VM")
+parser_start.add_argument('VMID', type=int, help='ID VM')
+
+parser_stop = subparsers.add_parser('stop', help='{VMID} Stop VM')
+parser_stop.add_argument('VMID', type=int, help='ID VM')
+
+parser_reboot = subparsers.add_parser('reboot', help='{VMID} Reboot VM')
+parser_reboot.add_argument('VMID', type=int, help='ID VM')
+
+parser_console = subparsers.add_parser('console', help="{VMID} Open console vm 'for lxc vm'")
+parser_console.add_argument('VMID', type=int, help='ID VM')
+
+group = parser.add_mutually_exclusive_group(required=False)
+group.add_argument('-v', '--version', action='version', version=co.Green+version+co.Default)
+group.add_argument("-l", "--list", action="store_true", help ="shows the list of all VMs")
+
 args = parser.parse_args()
 
 #? Fonction ----------------------------------------------------------------------------------------->
@@ -207,27 +226,27 @@ def Console_VM(vm):
 
 print()
 
-if args.start:
+if args.Command_Name == 'start':
 
-    vm_info = Search_VM(Check_IDVM(args.start))
+    vm_info = Search_VM(Check_IDVM(args.VMID))
     Start_VM(vm_info)
     Exit()
 
-if args.stop:
+if args.Command_Name == 'stop':
 
-    vm_info = Search_VM(Check_IDVM(args.stop))
+    vm_info = Search_VM(Check_IDVM(args.VMID))
     Stop_VM(vm_info)
     Exit()
 
-if args.reboot:
+if args.Command_Name == 'reboot':
 
-    vm_info = Search_VM(Check_IDVM(args.reboot))
+    vm_info = Search_VM(Check_IDVM(args.VMID))
     Reboot_VM(vm_info)
     Exit()
 
-if args.console:
+if args.Command_Name == 'console':
 
-    vm_info = Search_VM(Check_IDVM(args.console))
+    vm_info = Search_VM(Check_IDVM(args.VMID))
     Console_VM(vm_info)
     Exit()
 
