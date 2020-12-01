@@ -1,2 +1,2 @@
-# ProxTool
+# ProxMoxTool
 Tool for Proxmox
