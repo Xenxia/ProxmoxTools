@@ -25,12 +25,13 @@
 import argparse
 import os
 from os import system
+from operator import itemgetter
 
-version = "2.0.0"
+version = "3.0.0"
 
 
 # ? Color ------------------------------------------------------------------------------->
-class Co:
+class Color:
     RESET = "\u001b[0m" + "\n"
 
     DEFAULT = "\u001b[0m"
@@ -48,9 +49,9 @@ class Co:
     UNDERLINE = '\033[4m'
     REVERSE = "\033[;7m"
 
-
 # ? Argument parser ------------------------------------------------------------------------------->
-parser = argparse.ArgumentParser(description="Application to merge the 'qm' and 'pct' commands from proxmox",
+
+parser = argparse.ArgumentParser(description="Application to merge the 'qm', 'pct' and 'vz' commands from proxmox",
                                  allow_abbrev=False,
                                  prog='vm',
                                  usage="%(prog)s"
@@ -59,6 +60,16 @@ parser = argparse.ArgumentParser(description="Application to merge the 'qm' and 
 subparsers = parser.add_subparsers(title='Commande',
                                    dest='Command_Name',
                                    )
+
+parser_list = subparsers.add_parser('list', help="[OPTION] shows the list of all VMs")
+parser_list.add_argument('-sort', choices=['status', 'type', 'name'],
+                            help='Default sort by ID VM'
+                            'status = sort by STATUS VM running/stopped'
+                            'type = sort by TYPE VM : LXC/QM'
+                            'name = sort by NAME VM'
+                            )
+parser_list.add_argument('-r', '-reverse', action="store_true", dest='REVERSE',
+                            help='reverse sort.')
 
 parser_start = subparsers.add_parser('start', help="<vmID> Start VM")
 parser_start.add_argument('vmID', type=int, help='The (unique) ID of the VM.')
@@ -75,7 +86,7 @@ parser_console.add_argument('vmID', type=int, help='The (unique) ID of the VM.')
 parser_destroy = subparsers.add_parser('destroy',
                                        help="<vmID> [OPTION] Destroy the container (also delete all uses files).")
 parser_destroy.add_argument('vmID', type=int, help='The (unique) ID of the VM.')
-parser_destroy.add_argument('-p', '-purge', action="store_true", dest='Purge',
+parser_destroy.add_argument('-p', '-purge', action="store_true", dest='PURGE',
                             help='Remove container from all related configurations.')
 
 parser_clone = subparsers.add_parser('clone', help="<vmID> <newID> [OPTION] Create a container clone/copy")
@@ -84,7 +95,7 @@ parser_clone.add_argument('newID', type=int, help='vmID for the clone.')
 parser_clone.add_argument('-bwlimit', type=int, help='Override I/O bandwidth limit (in KiB/s).')
 parser_clone.add_argument('-description', type=str, help='Description for the new CT/VM.')
 parser_clone.add_argument('-full', action="store_true",
-                          help='Create a full copy of all disks. This is always done when you clone a normal CT/VM. '
+                          help='Create a full copy of all disks. This is always done when you clone a normal CT/VM.'
                                'For CT templates, we try to create a linked clone by default.')
 parser_clone.add_argument('-name', type=str, help='Set a hostname/name for the new CT/VM.')
 parser_clone.add_argument('-pool', type=str, help='Add the new CT to the specified pool.')
@@ -96,201 +107,207 @@ parser_clone.add_argument('-format', choices=['qcow2', 'raw', 'vmdk'],
                           help='Target format for file storage. Only valid for full clone. (Only QEMU VM)')
 
 group = parser.add_mutually_exclusive_group()
-group.add_argument('-v', '--version', action='version', version=Co.GREEN + version + Co.DEFAULT)
-group.add_argument("-l", "--list", action="store_true", help="shows the list of all VMs")
+group.add_argument('-v', '--version', action='version', version=Color.GREEN + version + Color.DEFAULT)
 
 args = parser.parse_args()
-
 
 # ? Class ----------------------------------------------------------------------------------------->
 
 class Sys:
 
-    @staticmethod
     def clear():
         _ = system('clear')
 
-    def exit(self):
+    def exit():
         raise SystemExit(0)
 
 
 class Vm:
-    __vm_dict = {}
+    __vm_list = []
 
     def __init__(self):
 
-        self.__vm_dict[0] = {'#1': 'VMID', '#2': 'Status', '#3': 'Type', '#4': 'Name'}
         list_pct = os.popen("pct list", "r").read()
         list_qm = os.popen("qm list", "r").read()
-        num_dict = int(1)
 
         ###############
         # VM LXC LIST #
         ###############
 
         for line in list_pct.split("\n"):
-            num = int(1)
-            self.__vm_dict[num_dict] = {'vm_ID': '', 'Status': '', 'Tag': '', 'Name': ''}
 
-            for string in line.split(" "):
+            if line != "":
 
-                if string != "" and string != "VMID" and string != "Status" and string != "Lock" and string != "Name":
+                num = int(1)
+                temp_dict = {'vm_ID': '', 'Status': '', 'Tag': '', 'Name': ''}
 
-                    if num == 1:
-                        self.__vm_dict[num_dict]['vm_ID'] = string
+                for string in line.split(" "):
 
-                    if num == 2:
-                        self.__vm_dict[num_dict]['Status'] = string
+                    if string != "" and string != "VMID" and string != "Status" and string != "Lock" and string != "Name":
 
-                    if num == 3:
-                        self.__vm_dict[num_dict]['Name'] = string
-                        self.__vm_dict[num_dict]['Tag'] = "LXC"
-                        num_dict += 1
+                        if num == 1:
+                            temp_dict['vm_ID'] = string
 
-                    num += 1
+                        elif num == 2:
+                            temp_dict['Status'] = string
+
+                        elif num == 3:
+                            temp_dict['Name'] = string
+                            temp_dict['Tag'] = "LXC"
+
+                        num += 1
+                
+                if temp_dict['vm_ID'] != "":
+                    self.__vm_list.append(temp_dict)
 
         ################
         # VM QEMU LIST #
         ################
 
         for line in list_qm.split("\n"):
-            num = int(1)
-            self.__vm_dict[num_dict] = {'vm_ID': '', 'Status': '', 'Tag': '', 'Name': ''}
+            
+            if line != "":
 
-            for string in line.split(" "):
+                num = int(1)
+                temp_dict = {'vm_ID': '', 'Status': '', 'Tag': '', 'Name': ''}
 
-                if string != "" and string != "VMID" and string != "STATUS" and string != "NAME" and string != "MEM(MB)" and string != "BOOTDISK(GB)" and string != "PID":
+                for string in line.split(" "):
 
-                    if num == 1:
-                        self.__vm_dict[num_dict]['vm_ID'] = string
+                    if string != "" and string != "VMID" and string != "STATUS" and string != "NAME" and string != "MEM(MB)" and string != "BOOTDISK(GB)" and string != "PID":
 
-                    if num == 2:
-                        self.__vm_dict[num_dict]['Name'] = string
+                        if num == 1:
+                            temp_dict['vm_ID'] = string
 
-                    if num == 3:
-                        self.__vm_dict[num_dict]['Status'] = string
-                        self.__vm_dict[num_dict]['Tag'] = "QM"
-                        num_dict += 1
+                        elif num == 2:
+                            temp_dict['Name'] = string
 
-                    num += 1
+                        elif num == 3:
+                            temp_dict['Status'] = string
+                            temp_dict['Tag'] = "QM"
 
-    @staticmethod
-    def __check_ID(ID_vm):
+                        num += 1
+                
+                if temp_dict['vm_ID'] != "":
+                    self.__vm_list.append(temp_dict)
+
+    def __check_ID(self, ID_vm):
+
         if 100 <= int(ID_vm) <= 999:
             return ID_vm
 
-        print(Co.RED + str(ID_vm) + ' ID incorect' + Co.RESET)
+        print(Color.RED + str(ID_vm) + ' ID incorect' + Color.RESET)
         Sys.exit()
 
     def used_ID(self, ID_vm):
-        self.__check_ID(ID_vm)
-        num_total_vm = len(self.__vm_dict)
 
-        for num_dict in range(1, num_total_vm):
-            for value in self.__vm_dict[num_dict].values():
+        self.__check_ID(ID_vm)
+
+        for vm_dict in self.__vm_list:
+            for value in vm_dict.values():
                 if value == str(ID_vm):
-                    print(Co.ORANGE + 'The ID "' + str(ID_vm) + '" is already used by another VM' + Co.RESET)
+                    print(Color.ORANGE + 'The ID "' + str(ID_vm) + '" is already used by another VM' + Color.RESET)
                     Sys.exit()
 
     def search(self, ID_vm):
+
         self.__check_ID(ID_vm)
-        num_total_vm = len(self.__vm_dict)
 
-        for num_dict in range(1, num_total_vm):
-            for value in self.__vm_dict[num_dict].values():
+        for vm_dict in self.__vm_list:
+            for value in vm_dict.values():
                 if value == str(ID_vm):
-                    return self.__vm_dict[num_dict]
+                    return vm_dict
 
-        print(Co.RED + "No existing VM" + Co.RESET)
+        print(Color.RED + "No existing VM" + Color.RESET)
         Sys.exit()
 
-    def getDico(self):
-        return self.__vm_dict
+    def get_VM_List(self):
+        return self.__vm_list
 
 
 # ? Function ----------------------------------------------------------------------------------------->
+
 def start_VM(info_vm):
     if info_vm["Status"] == "running":
         print(
-            Co.MAGENTA + "VM Already " + Co.GREEN + "started " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+            Color.MAGENTA + "VM Already " + Color.GREEN + "started " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "LXC":
-        print(Co.YELLOW + "Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('pct start ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "QM":
-        print(Co.YELLOW + "Start VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Start VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('qm start ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
 
 def stop_VM(info_vm):
     if info_vm["Status"] == "stopped":
-        print(Co.MAGENTA + "VM Already " + Co.RED + "stopped " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.MAGENTA + "VM Already " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "LXC":
-        print(Co.YELLOW + "Stop Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Stop Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('pct stop ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "QM":
-        print(Co.YELLOW + "Stop VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Stop VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('qm stop ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
 
 def reboot_VM(info_vm):
     if info_vm["Status"] == "stopped":
-        print(Co.MAGENTA + "The VM is " + Co.RED + "stopped " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.MAGENTA + "The VM is " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "LXC":
-        print(Co.YELLOW + "Reboot Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Reboot Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('pct reboot ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "QM":
-        print(Co.YELLOW + "Reboot VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.DEFAULT)
+        print(Color.YELLOW + "Reboot VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
         os.system('qm reboot ' + str(info_vm["vm_ID"]))
-        print(Co.GREEN + "Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.GREEN + "Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
 
 def console_VM(info_vm):
     if info_vm["Status"] == "stopped":
-        print(Co.MAGENTA + "The VM is " + Co.RED + "stopped " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+        print(Color.MAGENTA + "The VM is " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
 
     elif info_vm["Tag"] == "LXC":
-        print(Co.YELLOW + "exit the console Ctrl+a q" + Co.Reset)
+        print(Color.YELLOW + "exit the console Ctrl+a q" + Color.Reset)
         os.system('pct console ' + str(info_vm["vm_ID"]) + ' -escape ^a')
         Sys.clear()
 
     elif info_vm["Tag"] == "QM":
-        print(Co.YELLOW + "use 'qm terminal' and config serial" + Co.RESET)
+        print(Color.YELLOW + "use 'qm terminal' and config serial" + Color.RESET)
 
 
 def destroy_VM(info_vm, opti=""):
     if info_vm["Status"] == "running":
         print(
-            Co.MAGENTA + "The VM is " + Co.GREEN + "running " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+            Color.MAGENTA + "The VM is " + Color.GREEN + "running " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
         Sys.exit()
 
-    choicer_Action = input(Co.ORANGE + "Do you really want to remove the VM : " + Co.UNDERLINE + Co.CYAN + info_vm[
-        "Name"] + Co.DEFAULT + " (" + Co.GREEN + "Y" + Co.DEFAULT + "/" + Co.RED + "[N]" + Co.DEFAULT + "): ")
+    choicer_Action = input(Color.ORANGE + "Do you really want to remove the VM : " + Color.UNDERLINE + Color.CYAN + info_vm[
+        "Name"] + Color.DEFAULT + " (" + Color.GREEN + "Y" + Color.DEFAULT + "/" + Color.RED + "[N]" + Color.DEFAULT + "): ")
     print()
 
     if choicer_Action == 'Y' or choicer_Action == 'y':
 
-        input_vmID = input(Co.MAGENTA + "Please enter the ID to confirm" + Co.DEFAULT + " (" + info_vm["vm_ID"] + ") : ")
+        input_vmID = input(Color.MAGENTA + "Please enter the ID to confirm" + Color.DEFAULT + " (" + info_vm["vm_ID"] + ") : ")
 
         if input_vmID == info_vm["vm_ID"]:
-            print(Co.Reset)
+            print(Color.Reset)
             if info_vm["Tag"] == "LXC":
                 os.system('pct destroy ' + str(info_vm["vm_ID"]) + opti)
 
             elif info_vm["Tag"] == "QM":
                 os.system('qm destroy ' + str(info_vm["vm_ID"]) + opti)
         else:
-            print(Co.RED + 'Wrong ID : ' + input_vmID + Co.RESET)
+            print(Color.RED + 'Wrong ID : ' + input_vmID + Color.RESET)
             Sys.exit()
 
         print()
@@ -303,7 +320,7 @@ def destroy_VM(info_vm, opti=""):
 def clone_VM(info_vm, new_vm, opti=""):
     if info_vm["Status"] == "running":
         print(
-            Co.MAGENTA + "The VM is " + Co.GREEN + "running " + Co.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Co.RESET)
+            Color.MAGENTA + "The VM is " + Color.GREEN + "running " + Color.MAGENTA + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
         Sys.exit()
 
     if info_vm["Tag"] == "LXC":
@@ -316,7 +333,6 @@ def clone_VM(info_vm, new_vm, opti=""):
 
     print()
     Sys.exit()
-
 
 # ? Start ----------------------------------------------------------------------------------------->
 
@@ -348,7 +364,7 @@ if args.Command_Name == 'console':
 if args.Command_Name == 'destroy':
 
     vm_info = vm.search(args.vmID)
-    if args.Purge: option = " -purge "
+    if args.PURGE: option = " -purge "
     destroy_VM(vm_info, option)
     Sys.exit()
 
@@ -364,54 +380,59 @@ if args.Command_Name == 'clone':
     if args.snapname: option += " -snapname " + str(args.snapname)
     if args.storage: option += " -storage " + str(args.storage)
     if args.target: option += " -target " + str(args.target)
-    if args.name:  # -------------------------->
+    if args.name:  #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
         if vm_info["Tag"] == "LXC":
             option += " -hostname " + args.name
         elif vm_info["Tag"] == "QM":
             option += " -name " + args.name
-    if args.format:  # -------------------------->
+    if args.format:  #▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬
         if vm_info["Tag"] == "QM":
             option += " -format " + args.format
         else:
-            print(Co.ORANGE + 'The "-format" option is only available for VM (QEMU)' + Co.RESET)
+            print(Color.ORANGE + 'The "-format" option is only available for VM (QEMU)' + Color.RESET)
             Sys.exit()
 
     clone_VM(vm_info, args.newID, option)
     Sys.exit()
 
-if args.list:
+if args.Command_Name == 'list':
+
+    key_sort = 'vm_ID'
+
+    if args.sort:
+        if args.sort == "type": key_sort = 'Tag'
+        elif args.sort == "status": key_sort = 'Status'
+        elif args.sort == "name": key_sort = 'Name'
 
     Sys.clear()
     print("\n")
 
-    vm_dict = vm.getDico()
-
-    num_vm_len = len(vm_dict)
+    vm_list_sort = sorted(vm.get_VM_List(), key=itemgetter(key_sort), reverse=args.REVERSE)
 
     form_header = "{0:6}{1:10}{2:6}{3:10}"
-    form_Stop = "{0:6}" + Co.RED + "{1:10}" + Co.DEFAULT + "{2:6}{3:10}"
-    form_Start = "{0:6}" + Co.GREEN + "{1:10}" + Co.DEFAULT + "{2:6}{3:10}"
+    form_Stop = "{0:6}" + Color.RED + "{1:10}" + Color.DEFAULT + "{2:6}{3:10}"
+    form_Start = "{0:6}" + Color.GREEN + "{1:10}" + Color.DEFAULT + "{2:6}{3:10}"
     dash = '-' * 40
+    title = ['VMID', 'Status', 'Type', 'Name']
 
-    for x in range(0, num_vm_len - 1):
+    print(dash)
+    print(form_header.format(*title))
+    print(dash)
 
-        vm_print = list(vm_dict[x].values())
+    for vm_dict in vm_list_sort:
+        
+        vm_print = list(vm_dict.values())
 
-        if x != 0:
-            if vm_print[1] == 'stopped':
-                print(form_Stop.format(*vm_print))
-            elif vm_print[1] == 'running':
-                print(form_Start.format(*vm_print))
-        else:
-            print(dash)
-            print(form_header.format(*vm_print))
-            print(dash)
+        if vm_print[1] == 'stopped':
+            print(form_Stop.format(*vm_print))
+        elif vm_print[1] == 'running':
+            print(form_Start.format(*vm_print))
 
-    print(Co.RESET)
+    print(Color.RESET)
 
     Sys.exit()
 
-print(Co.RED + 'No argument detected' + Co.RESET)
+print(Color.RED + 'No argument detected' + Color.RESET)
 
 parser.print_help()
 
