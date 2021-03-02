@@ -6,6 +6,6 @@
 
 ## [Wiki](https://github.com/Xenxia/ProxmoxTool/wiki)
 
-## Future additions
+## TODO
 
 - [ ] : Installation script and update
