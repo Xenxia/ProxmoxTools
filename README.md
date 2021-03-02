@@ -1,4 +1,4 @@
-# ProxMoxTool
+# ProxMoxTools
 
 #### ProxmoxTools is a list of small utilities for proxmox
 
