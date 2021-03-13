@@ -130,7 +130,7 @@ parser_clone.add_argument('-format', choices=['qcow2', 'raw', 'vmdk'],
                           )
 
 group = parser.add_mutually_exclusive_group()
-group.add_argument('-v', '--version', action='version', version=Color.GREEN + version + Color.DEFAULT)
+group.add_argument('-v', '--version', action='version', version=version)
 
 args = parser.parse_args()
 
