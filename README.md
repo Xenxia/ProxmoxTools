@@ -10,4 +10,4 @@
 ## TODO
 
 - [ ] : Installation script and update
-- [x] : Créate binari
+- [x] : Create binary
