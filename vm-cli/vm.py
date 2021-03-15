@@ -222,7 +222,7 @@ class Main_vm:
         if 100 <= int(ID_vm) <= 999:
             return None
 
-        print(Color.RED + ID_vm + ' ID incorect' + Color.RESET)
+        print(Color.RED + ID_vm + ' ID invalid' + Color.RESET)
         sys.exit()
 
     def __exist_VM(self, ID_vm: str) -> None:
@@ -246,7 +246,7 @@ class Main_vm:
     def regex_vmID(self, str_ID_vm: str) -> list:
 
         if not regex.search(r'[.]{2,}|[^.\d]|[.]$|^[.]', str_ID_vm):
-            reg = regex.compile(r"\d{3}")
+            reg = regex.compile(r"\d{3,}")
             list_ID_vm = reg.findall(str_ID_vm)
             for ID_vm in list_ID_vm:
                 self.__exist_VM(ID_vm)

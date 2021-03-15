@@ -16,6 +16,8 @@ BLUE="\e[38;5;4m"
 
 # /!\ don't modify below /!\
 
+FILE_DATE="date.pts"
+FILE_VERSION="version.pts"
 INSTALL_PATH="/usr/local/bin/"
 TEMP_PATH="/tmp/"
 URL_DOWNLOAD="https://github.com/Xenxia/ProxmoxTools/releases/download/Download/"
@@ -35,20 +37,20 @@ install_Soft() {
 # SCRIPT
 
 DATE=$(date +%D)
-if [ -e ${TEMP_PATH}date.pts ]; then
-  source "${TEMP_PATH}date.pts"
+if [ -e ${TEMP_PATH}${FILE_DATE} ]; then
+  source "${TEMP_PATH}${FILE_DATE}"
   if [ $DATE_UPDATE_PTS != $DATE ]; then
     echo "DL_VERSION"
-    wget -q "${URL_DOWNLOAD}version" -O "${TEMP_PATH}version.pts"
+    wget -q "${URL_DOWNLOAD}${FILE_VERSION}" -O "${TEMP_PATH}${FILE_VERSION}"
   fi
 else
   echo "DL_VERSION"
-  echo "DATE_UPDATE_PTS=$DATE" >> ${TEMP_PATH}date.pts
-  wget -q "${URL_DOWNLOAD}version" -O "${TEMP_PATH}version.pts"
+  echo "DATE_UPDATE_PTS=$DATE" >> ${TEMP_PATH}${FILE_DATE}
+  wget -q "${URL_DOWNLOAD}${FILE_VERSION}" -O "${TEMP_PATH}${FILE_VERSION}"
 fi
 
-source "${TEMP_PATH}version"
-line=$(wc -l ${TEMP_PATH}version | awk -F ' ' '{print $1}')
+source "${TEMP_PATH}${FILE_VERSION}"
+line=$(wc -l ${TEMP_PATH}${FILE_VERSION} | awk -F ' ' '{print $1}')
 
 Navig=Setup
 
