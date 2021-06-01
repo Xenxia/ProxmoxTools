@@ -12,5 +12,8 @@
 
 ## TODO
 
-- [x] : Installation script and update
+- [x] : Create an install/update script
 - [x] : Create binary
+- [ ] : Redo the install/update script
+
+## 
