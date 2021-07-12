@@ -23,14 +23,32 @@
 # SOFTWARE.
 
 import argparse
-import os
+import os, sys
 import subprocess
+import socket
 import re as regex
-import sys
+import logging
 from argparse import RawTextHelpFormatter
 from operator import itemgetter
+from typing import Pattern
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich import box
+from rich.logging import RichHandler
 
-version = "4.0.0"
+consall = Console()
+hostName: str = socket.gethostname()
+version: str = "5.0.0"
+defaultConfBackp: str = "[node="+hostName+", remove=1, mode=stop, storage=local, compress=gzip]"
+regKeyValue: Pattern = regex.compile(r'([\w-]+)=([^,;:\\\]]+)')
+logging.basicConfig(
+    level="NOTSET",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
+log = logging.getLogger("rich")
 
 
 # ? Color ------------------------------------------------------------------------------->
@@ -49,23 +67,24 @@ class Color:
     MAGENTA = "\u001b[38;5;207m"
     CYAN = "\u001b[38;5;51m"
 
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
     REVERSE = "\033[;7m"
 
 
 # ? Argument parser ------------------------------------------------------------------------------->
 
-parser = argparse.ArgumentParser(description="Application to merge the 'qm', 'pct' commands from proxmox",
+parser = argparse.ArgumentParser(description="Application to merge the 'qm', 'pct' and 'vz' commands from proxmox",
                                  allow_abbrev=False,
                                  prog='vm-cli',
-                                 usage="%(prog)s"
+                                 usage='%(prog)s'
                                  )
 
 subparsers = parser.add_subparsers(title='Commande',
                                    dest='Command_Name',
                                    )
 
+# LIST
 parser_list = subparsers.add_parser('list', help='[OPTION] shows the list of all VMs',
                                     formatter_class=RawTextHelpFormatter)
 parser_list.add_argument('-sort', choices=['status', 'type', 'name'],
@@ -76,6 +95,7 @@ parser_list.add_argument('-sort', choices=['status', 'type', 'name'],
                          )
 parser_list.add_argument('-r', '-reverse', action="store_true", dest='REVERSE', help='reverse sort.')
 
+# CONFIG
 parser_config = subparsers.add_parser('config',
                                       help='<vmID> [OPTION] Get the configuration of the virtual machine or container with '
                                            'the current configuration changes applied. Set the current '
@@ -85,36 +105,41 @@ parser_config.add_argument('-current', action="store_true", help='Get current va
                            dest='CURRENT')
 parser_config.add_argument('-snapshot', type=str, help='Fetch config values from given snapshot.', dest='SNAPSHOT')
 
+# START
 parser_start = subparsers.add_parser('start', help="<vmID's> Start VM")
 parser_start.add_argument('VMID_LIST', metavar="vmID's", type=str,
                           help='The (unique) ID of the VM. Start multiple VM\CTs with : 100.101')
 
+# STOP
 parser_stop = subparsers.add_parser('stop', help="<vmID's> Stop VM")
 parser_stop.add_argument('VMID_LIST', metavar="vmID's", type=str,
                          help='The (unique) ID of the VM. Stop multiple VM\CTs with : 100.101')
 
+# REBOOT
 parser_reboot = subparsers.add_parser('reboot', help="<vmID's> Reboot VM")
 parser_reboot.add_argument('VMID_LIST', metavar="vmID's", type=str,
                            help='The (unique) ID of the VM. Reboot multiple VM\CTs with : 100.101')
 
+# CONSOLE
 parser_console = subparsers.add_parser('console', help="<vmID> Open console vm 'for lxc vm'")
 parser_console.add_argument('VMID', metavar='vmID', type=int, help='The (unique) ID of the VM.')
 
+# DESTROY
 parser_destroy = subparsers.add_parser('destroy',
                                        help='<vmID> [OPTION] Destroy the container (also delete all uses files).')
 parser_destroy.add_argument('VMID', metavar='vmID', type=int, help='The (unique) ID of the VM.')
 parser_destroy.add_argument('-p', '-purge', action='store_true', dest='PURGE',
                             help='Remove container from all related configurations.')
 
+# CLONE
 parser_clone = subparsers.add_parser('clone', help='<vmID> <newID> [OPTION] Create a container clone/copy')
 parser_clone.add_argument('VMID', metavar='vmID', type=int, help='The (unique) ID of the VM.')
 parser_clone.add_argument('newID', type=int, help='vmID for the clone.')
 parser_clone.add_argument('-bwlimit', type=int, help='Override I/O bandwidth limit (in KiB/s).', dest='BWLIMIT')
 parser_clone.add_argument('-description', type=str, help='Description for the new CT/VM.', dest='DESCRIPTION')
-parser_clone.add_argument('-full', action="store_true",
+parser_clone.add_argument('-full', action="store_true", dest='FULL',
                           help='Create a full copy of all disks. This is always done when you clone a normal CT/VM.'
                                'For CT templates, we try to create a linked clone by default.',
-                          dest='FULL'
                           )
 parser_clone.add_argument('-name', type=str, help='Set a hostname/name for the new CT/VM.', dest='NAME')
 parser_clone.add_argument('-pool', type=str, help='Add the new CT to the specified pool.', dest='POOL')
@@ -124,10 +149,35 @@ parser_clone.add_argument('-target', type=str,
                           help='Target node. Only allowed if the original VM is on shared storage.',
                           dest='TARGET'
                           )
-parser_clone.add_argument('-format', choices=['qcow2', 'raw', 'vmdk'],
+parser_clone.add_argument('-format', choices=['qcow2', 'raw', 'vmdk'], dest='FORMAT',
                           help='Target format for file storage. Only valid for full clone. (Only QEMU VM)',
-                          dest='FORMAT'
                           )
+
+# BACKUP
+tableBackup = Table("Key", "Info", "Default", "Value", box=box.ROUNDED)
+
+tableBackup.add_row("bwlimit", "Limit I/O bandwidth (KBytes per second).\n", "0", "int")
+tableBackup.add_row("compress", "Compress dump file.\n", "gzip", "gzip, lzo, zstd")
+tableBackup.add_row("dumpdir", "Store resulting files to specified directory.\n", "-", "string")
+tableBackup.add_row("mode", "Backup mode.\n", "stop", "snapshot, stop, suspend")
+tableBackup.add_row("node", "Only run if executed on this node.\n", hostName, "string")
+tableBackup.add_row("remove", "Remove old backup files if there are more than \n'maxfiles' backup files.\n", "1", "int")
+tableBackup.add_row("storage", "Store resulting file to this storage.", "local", "string")
+tableBackup.row_styles = ["none", "dim"]
+
+console = Console()
+original_width = console.measure(tableBackup).maximum
+tableBackup.width = original_width-25
+with console.capture() as capture: console.print(tableBackup)
+table_backup = capture.get()
+
+parser_backup = subparsers.add_parser('backup', help="<vmID> [OPTION] Backup CT/VM", formatter_class=RawTextHelpFormatter)
+parser_backup.add_argument('VMID', metavar='vmID', type=int, help='The (unique) ID of the VM.')
+parser_backup.add_argument('-config', metavar="[Key=Value]", type=str, dest='CONFIG',
+                            help="Config Backup. \ndefaultConfig : "+ defaultConfBackp +"\n"+table_backup
+                            )
+
+# parser_restore = subparsers.add_parser('restore', help="<vmID> [OPTION] Restore CT/VM")
 
 group = parser.add_mutually_exclusive_group()
 group.add_argument('-v', '--version', action='version', version=version)
@@ -141,12 +191,33 @@ if args.Command_Name is None:
     sys.exit()
 
 
-# ? Function sys ------------------------------------------------------------------------------------->
+# ? Function sys ------------------------------------------------------------------------------->
 
 def clear() -> None: os.system("printf '\033c'")
 
+def customDictToDict(customDict: str, dictTemplate: dict) -> dict:
+    if customDict[:1] == "[" and customDict[-1] == "]":
+        listKeyValue: list = regex.findall(regKeyValue, customDict)
+        for result in listKeyValue:
+            if not result[0] in dictTemplate.keys():
+                print(Color.RED + "Error key : this key does not exist -> " + result[0] + Color.RESET)
+                sys.exit()
 
-# ? Class ----------------------------------------------------------------------------------------->
+        for result in listKeyValue:
+                dictTemplate[result[0]] = result[1]
+    else:
+        print(Color.RED + "Error Syntaxe : the config argument expects [key=value, ...]" + Color.RESET)
+        sys.exit()
+    
+    return dictTemplate
+
+def errorLog(logError: bytes) -> None:
+    for line in logError.splitlines():
+        line = line.decode("utf-8")
+        if line[:5] == "ERROR":
+            log.error(line[7:])
+
+# ? Class -------------------------------------------------------------------------------------->
 
 class Main_vm:
     __vm_list: list = []
@@ -222,7 +293,7 @@ class Main_vm:
         if 100 <= int(ID_vm) <= 999:
             return None
 
-        print(Color.RED + ID_vm + ' ID invalid' + Color.RESET)
+        print(Color.RED + str(ID_vm) + ' ID incorect' + Color.RESET)
         sys.exit()
 
     def __exist_VM(self, ID_vm: str) -> None:
@@ -276,106 +347,104 @@ class Main_vm:
         return self.__vm_list
 
 
-# ? Function vm -------------------------------------------------------------------------------------->
+# ? Function vm -------------------------------------------------------------------------------->
 
 def get_config_VM(info_vm: dict, option: str = "") -> None:
-    dash_30: str = '-' * 30
-    print(Color.WHITE + dash_30 + str(' ' + info_vm["vm_ID"] + ':' + info_vm["Name"] + ' ') + dash_30 + Color.CLEAR)
+
+    
     if info_vm["Tag"] == "LXC":
-        os.system('pct config ' + info_vm["vm_ID"] + option)
+        config_vm = os.popen('pct config ' + info_vm["vm_ID"] + option, 'r').read().rstrip()
+        consall.print(Panel.fit(config_vm, title=str(info_vm["vm_ID"] + ':' + info_vm["Name"]), border_style="cyan", box=box.ROUNDED))
 
     elif info_vm["Tag"] == "QM":
-        os.system('qm config ' + info_vm["vm_ID"] + option)
-
-    print(
-        Color.WHITE + dash_30 + '-' * len(' ' + info_vm["vm_ID"] + ':' + info_vm["Name"] + ' ') + dash_30 + Color.RESET)
+        config_vm = os.popen('qm config ' + info_vm["vm_ID"] + option, 'r').read().rstrip()
+        consall.print(Panel.fit(config_vm, title=str(info_vm["vm_ID"] + ':' + info_vm["Name"]), border_style="cyan", box=box.ROUNDED))
 
 
 def start_VM(info_vm: dict) -> None:
+    console = Console()
+
     if info_vm["Status"] == "running":
-        print(Color.MAGENTA + "VM Already " + Color.GREEN + "started " + Color.MAGENTA + info_vm["Name"] + ':' +
-              info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] VM Already started "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
-            print(Color.YELLOW + "Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['pct start ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
-        except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            with console.status("Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['pct start ' + info_vm["vm_ID"]], shell=True)
+                status.stop()
+                consall.print("[green3]●[/green3] Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+        except subprocess.CalledProcessError as error:
+            errorLog(error.output)
 
     elif info_vm["Tag"] == "QM":
         try:
-            print(Color.YELLOW + "Start VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['qm start ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
-        except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            with console.status("Start VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['qm start ' + info_vm["vm_ID"]], shell=True)
+                status.stop()
+                consall.print("[green3]●[/green3] Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+        except subprocess.CalledProcessError as error:
+            errorLog(error.output)
 
 
 def stop_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        print(Color.MAGENTA + "VM Already " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' +
-              info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] VM Already stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
-            print(Color.YELLOW + "Stop Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['pct stop ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
-        except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            with console.status("Stop Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['pct stop ' + info_vm["vm_ID"]], shell=True); status.stop()
+                consall.print("[green3]●[/green3] Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+        except subprocess.CalledProcessError as error:
+            errorLog(error.output)
 
     elif info_vm["Tag"] == "QM":
         try:
-            print(Color.YELLOW + "Stop VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['qm stop ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
-        except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            with console.status("Stop VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['qm stop ' + info_vm["vm_ID"]], shell=True); status.stop()
+                consall.print("[green3]●[/green3] Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+        except subprocess.CalledProcessError as error:
+            errorLog(error.output)
 
 
 def reboot_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        print(Color.MAGENTA + "The VM is " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' +
-              info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] VM is stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
-            print(Color.YELLOW + "Reboot Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['pct reboot ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
+            with console.status("Reboot Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['pct reboot ' + info_vm["vm_ID"]], shell=True); status.stop()
+                consall.print("[green3]●[/green3] Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
         except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            consall.print("[red]The command was not executed correctly[/red]")
+
 
     elif info_vm["Tag"] == "QM":
         try:
-            print(Color.YELLOW + "Reboot VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.DEFAULT)
-            subprocess.check_output(['qm reboot ' + info_vm["vm_ID"]], shell=True)
-            print(Color.GREEN + "Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + Color.RESET)
+            with console.status("Reboot VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['qm reboot ' + info_vm["vm_ID"]], shell=True); status.stop()
+                consall.print("[green3]●[/green3] Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
         except subprocess.CalledProcessError:
-            print(Color.RED + "The command was not executed correctly" + Color.RESET)
+            consall.print("[red]The command was not executed correctly[/red]")
 
 
 def console_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        print(Color.MAGENTA + "The VM is " + Color.RED + "stopped " + Color.MAGENTA + info_vm["Name"] + ':' +
-              info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] This VM is stopped " + info_vm["Name"] + ':' + info_vm["vm_ID"])
 
     elif info_vm["Tag"] == "LXC":
-        print(Color.YELLOW + "exit the console Ctrl+a q" + Color.RESET)
+        consall.print("[yellow]●[/yellow] exit the console Ctrl+a q")
         os.system('pct console ' + info_vm["vm_ID"] + ' -escape ^a')
         clear()
 
     elif info_vm["Tag"] == "QM":
-        print(Color.YELLOW + "use 'qm terminal' and config serial" + Color.RESET)
+        consall.print("[yellow]●[/yellow] use 'qm terminal' and config serial")
 
 
 def destroy_VM(info_vm: dict, option: str = "") -> None:
     if info_vm["Status"] == "running":
-        print(
-            Color.MAGENTA + "The VM is " + Color.GREEN + "running " + Color.MAGENTA + info_vm["Name"] + ':' +
-            info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"])
         sys.exit()
 
     choicer_Action = input(
@@ -409,9 +478,7 @@ def destroy_VM(info_vm: dict, option: str = "") -> None:
 
 def clone_VM(info_vm: dict, new_vm: str, option: str = "") -> None:
     if info_vm["Status"] == "running":
-        print(
-            Color.MAGENTA + "The VM is " + Color.GREEN + "running " + Color.MAGENTA + info_vm["Name"] + ':' +
-            info_vm["vm_ID"] + Color.RESET)
+        consall.print("[purple]●[/purple] This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"])
         sys.exit()
 
     if info_vm["Tag"] == "LXC":
@@ -422,6 +489,26 @@ def clone_VM(info_vm: dict, new_vm: str, option: str = "") -> None:
         print()
         os.system('qm clone ' + str(info_vm["vm_ID"]) + ' ' + new_vm + option)
 
+    print()
+    sys.exit()
+
+
+def backup_VM(info_vm: dict, option: str = "") -> None:
+    if info_vm["Status"] == "running" and option.find("-mode stop") >= 0:
+        consall.print("[purple]●[/purple] This VM is running, do you really want to run the backup in 'stop' mode")
+        choicer_Action = input(" (" + Color.GREEN + "Y" + Color.DEFAULT + "/" + Color.RED + "[N]" + Color.DEFAULT + "): ")
+
+        if choicer_Action != 'Y' or choicer_Action != 'y':
+            sys.exit()
+
+    try:
+        with console.status("Backup " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+                subprocess.check_output(['vzdump ' + str(info_vm["vm_ID"]) + option], shell=True)
+                status.stop()
+                consall.print("[green3]●[/green3] Backup Finish " + info_vm["Name"] + ':' + info_vm["vm_ID"])
+    except subprocess.CalledProcessError as error:
+        errorLog(error.output)
+    
     print()
     sys.exit()
 
@@ -511,40 +598,60 @@ if args.Command_Name == 'clone':
     clone_VM(vm_info, str(args.newID), command_option)
     sys.exit()
 
+if args.Command_Name == 'backup':
+
+    vm_info = vm.get_VM_info_check(args.VMID)
+
+    noneDict: dict = {'bwlimit': None, 
+                      'compress': None, 
+                      'dumpdir': None, 
+                      'mode': None, 
+                      'node': None, 
+                      'remove': None, 
+                      'storage': None}
+
+    if args.CONFIG:
+        conf = customDictToDict(args.CONFIG, noneDict)
+    else:
+        conf = customDictToDict(defaultConfBackp, noneDict)
+
+    if conf['bwlimit']: command_option += " -bwlimit " + conf['bwlimit']
+    if conf['compress']: command_option += " -compress " + conf['compress']
+    if conf['dumpdir']: command_option += " -dumpdir " + conf['dumpdir']
+    if conf['mode']: command_option += " -mode " + conf['mode']
+    if conf['node']: command_option += " -node " + conf['node']
+    if conf['remove']: command_option += " -remove " + conf['remove']
+    if conf['storage']: command_option += " -storage " + conf['storage']
+
+    backup_VM(vm_info, command_option)
+    sys.exit()
+
 if args.Command_Name == 'list':
 
     key_sort: str = 'vm_ID'
 
     if args.sort:
-        if args.sort == "type":
-            key_sort = 'Tag'
-        elif args.sort == "status":
-            key_sort = 'Status'
-        elif args.sort == "name":
-            key_sort = 'Name'
+        if args.sort == "type": key_sort = 'Tag'
+        elif args.sort == "status": key_sort = 'Status'
+        elif args.sort == "name": key_sort = 'Name'
 
     vm_list_sort: list = sorted(vm.get_VM_List(), key=itemgetter(key_sort), reverse=args.REVERSE)
 
-    form_header = "{0:6}{1:10}{2:6}{3:10}"
-    form_Stop = "{0:6}" + Color.RED + "{1:10}" + Color.DEFAULT + "{2:6}{3:10}"
-    form_Start = "{0:6}" + Color.GREEN + "{1:10}" + Color.DEFAULT + "{2:6}{3:10}"
-    dash_40 = '-' * 40
-    title = ['VMID', 'Status', 'Type', 'Name']
-
-    print(dash_40)
-    print(form_header.format(*title))
-    print(dash_40)
+    tableList = Table("VMID", "Status", "Type", "Name", box=box.MINIMAL_HEAVY_HEAD)
 
     for vm_dict in vm_list_sort:
+        if vm_dict["Status"] == 'stopped':
+            vm_dict["Status"] = "[red]"+vm_dict["Status"]+"[/red]"
+        elif vm_dict["Status"] == 'running':
+            vm_dict["Status"] = "[green3]"+vm_dict["Status"]+"[/green3]"
 
-        vm_print = list(vm_dict.values())
+        tableList.add_row(vm_dict["vm_ID"], vm_dict["Status"], vm_dict["Tag"], vm_dict["Name"])
 
-        if vm_print[1] == 'stopped':
-            print(form_Stop.format(*vm_print))
-        elif vm_print[1] == 'running':
-            print(form_Start.format(*vm_print))
+    console_list = Console()
+    with console_list.capture() as capture: console_list.print(tableList)
+    table_list = capture.get()
 
-    print(Color.RESET)
+    print(table_list)
 
     sys.exit()
 
