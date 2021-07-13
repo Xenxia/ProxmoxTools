@@ -115,7 +115,7 @@ def install_soft(softDict: dict, message: str = 'Install') -> None:
 
 def update_soft(softDict: dict) -> None:
 
-    os.rmdir(softDict['install_path']+softDict['cmd'])
+    os.remove(softDict['install_path']+softDict['cmd'])
     install_soft(softDict, message='Update')
 
 def uninstall_soft(softDict: dict) -> None:
