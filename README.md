@@ -14,6 +14,5 @@
 
 - [x] : Create an install/update script
 - [x] : Create binary
-- [ ] : Redo the install/update script
+- [x] : Redo the install/update script
 
-## 
