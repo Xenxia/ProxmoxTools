@@ -1,6 +1,6 @@
 software:
   vm_cli:
-    version: "5.0.0"
+    version: "5.0.1"
     cmd: "vm"
     install_path: "/usr/local/bin/"
 

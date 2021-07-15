@@ -39,7 +39,7 @@ from rich.logging import RichHandler
 
 consall = Console()
 hostName: str = socket.gethostname()
-version: str = "5.0.0"
+version: str = "5.0.1"
 defaultConfBackp: str = "[node="+hostName+", remove=1, mode=stop, storage=local, compress=gzip]"
 regKeyValue: Pattern = regex.compile(r'([\w-]+)=([^,;:\\\]]+)')
 logging.basicConfig(
@@ -365,14 +365,14 @@ def start_VM(info_vm: dict) -> None:
     console = Console()
 
     if info_vm["Status"] == "running":
-        consall.print("[purple]●[/purple] VM Already started "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
+        consall.print("[purple]●[/purple] [grey100]VM Already started "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "[/grey100]\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
-            with console.status("Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
+            with console.status("[grey100]Start Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]", spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['pct start ' + info_vm["vm_ID"]], shell=True)
                 status.stop()
-                consall.print("[green3]●[/green3] Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Started Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError as error:
             errorLog(error.output)
 
@@ -381,20 +381,20 @@ def start_VM(info_vm: dict) -> None:
             with console.status("Start VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['qm start ' + info_vm["vm_ID"]], shell=True)
                 status.stop()
-                consall.print("[green3]●[/green3] Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Started VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError as error:
             errorLog(error.output)
 
 
 def stop_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        consall.print("[purple]●[/purple] VM Already stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
+        consall.print("[purple]●[/purple] [grey100]VM Already stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "[/grey100]\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
             with console.status("Stop Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['pct stop ' + info_vm["vm_ID"]], shell=True); status.stop()
-                consall.print("[green3]●[/green3] Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Stopped Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError as error:
             errorLog(error.output)
 
@@ -402,20 +402,20 @@ def stop_VM(info_vm: dict) -> None:
         try:
             with console.status("Stop VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['qm stop ' + info_vm["vm_ID"]], shell=True); status.stop()
-                consall.print("[green3]●[/green3] Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Stopped VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError as error:
             errorLog(error.output)
 
 
 def reboot_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        consall.print("[purple]●[/purple] VM is stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "\n")
+        consall.print("[purple]●[/purple] [grey100]VM is stopped "+ info_vm["Name"] + ':' +info_vm["vm_ID"] + "[/grey100]\n")
 
     elif info_vm["Tag"] == "LXC":
         try:
             with console.status("Reboot Container " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['pct reboot ' + info_vm["vm_ID"]], shell=True); status.stop()
-                consall.print("[green3]●[/green3] Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Rebooted Container " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError:
             consall.print("[red]The command was not executed correctly[/red]")
 
@@ -424,27 +424,27 @@ def reboot_VM(info_vm: dict) -> None:
         try:
             with console.status("Reboot VM " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['qm reboot ' + info_vm["vm_ID"]], shell=True); status.stop()
-                consall.print("[green3]●[/green3] Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "\n")
+                consall.print("[green3]●[/green3] [grey100]Rebooted VM " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         except subprocess.CalledProcessError:
             consall.print("[red]The command was not executed correctly[/red]")
 
 
 def console_VM(info_vm: dict) -> None:
     if info_vm["Status"] == "stopped":
-        consall.print("[purple]●[/purple] This VM is stopped " + info_vm["Name"] + ':' + info_vm["vm_ID"])
+        consall.print("[purple]●[/purple] [grey100]This VM is stopped " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
 
     elif info_vm["Tag"] == "LXC":
-        consall.print("[yellow]●[/yellow] exit the console Ctrl+a q")
+        consall.print("[yellow]●[/yellow] [grey100]exit the console Ctrl+a q[/grey100]")
         os.system('pct console ' + info_vm["vm_ID"] + ' -escape ^a')
         clear()
 
     elif info_vm["Tag"] == "QM":
-        consall.print("[yellow]●[/yellow] use 'qm terminal' and config serial")
+        consall.print("[yellow]●[/yellow] [grey100]use 'qm terminal' and config serial[/grey100]")
 
 
 def destroy_VM(info_vm: dict, option: str = "") -> None:
     if info_vm["Status"] == "running":
-        consall.print("[purple]●[/purple] This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"])
+        consall.print("[purple]●[/purple] [grey100]This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         sys.exit()
 
     choicer_Action = input(
@@ -478,7 +478,7 @@ def destroy_VM(info_vm: dict, option: str = "") -> None:
 
 def clone_VM(info_vm: dict, new_vm: str, option: str = "") -> None:
     if info_vm["Status"] == "running":
-        consall.print("[purple]●[/purple] This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"])
+        consall.print("[purple]●[/purple] [grey100]This VM is running " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]\n")
         sys.exit()
 
     if info_vm["Tag"] == "LXC":
@@ -495,7 +495,7 @@ def clone_VM(info_vm: dict, new_vm: str, option: str = "") -> None:
 
 def backup_VM(info_vm: dict, option: str = "") -> None:
     if info_vm["Status"] == "running" and option.find("-mode stop") >= 0:
-        consall.print("[purple]●[/purple] This VM is running, do you really want to run the backup in 'stop' mode")
+        consall.print("[purple]●[/purple] [grey100]This VM is running, do you really want to run the backup in 'stop' mode[/grey100]")
         choicer_Action = input(" (" + Color.GREEN + "Y" + Color.DEFAULT + "/" + Color.RED + "[N]" + Color.DEFAULT + "): ")
 
         if choicer_Action != 'Y' or choicer_Action != 'y':
@@ -505,7 +505,7 @@ def backup_VM(info_vm: dict, option: str = "") -> None:
         with console.status("Backup " + info_vm["Name"] + ':' + info_vm["vm_ID"], spinner="circleQuarters", spinner_style="yellow") as status:
                 subprocess.check_output(['vzdump ' + str(info_vm["vm_ID"]) + option], shell=True)
                 status.stop()
-                consall.print("[green3]●[/green3] Backup Finish " + info_vm["Name"] + ':' + info_vm["vm_ID"])
+                consall.print("[green3]●[/green3] [grey100]Backup Finish " + info_vm["Name"] + ':' + info_vm["vm_ID"] + "[/grey100]")
     except subprocess.CalledProcessError as error:
         errorLog(error.output)
     
