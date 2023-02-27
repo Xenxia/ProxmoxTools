@@ -15,6 +15,8 @@ var cliConfig = cli.Command{
     Before: func(ctx *cli.Context) error {
         if ctx.NArg() < 1 { return cli.Exit("One argument attempt", 3)}
         if ctx.NArg() >= 2 { return cli.Exit("One argument attempt", 3)}
+
+        
         return nil
     },
 

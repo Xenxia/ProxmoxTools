@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"sort"
 	"strings"
 	"vm-cli/vm"
 
@@ -9,6 +10,8 @@ import (
 	"github.com/urfave/cli/v2"
 	"golang.org/x/exp/slices"
 )
+
+var sortBy int8 = 0
 
 var cliList = cli.Command{
 	Name:      "list",
@@ -18,7 +21,7 @@ var cliList = cli.Command{
 		&cli.StringFlag{
 			Name:        "sort",
 			Aliases:     []string{"s"},
-			Usage:       "['status', 'type', 'name', 'id']",
+			Usage:       "['id', 'status', 'type', 'name', 'uptime']",
 			DefaultText: "id",
 		},
 		&cli.BoolFlag{
@@ -30,12 +33,19 @@ var cliList = cli.Command{
 	Before: func(ctx *cli.Context) error {
 
 		if slices.Contains(ctx.FlagNames(), "sort") {
-			vv := []string{"status", "type", "name", "id"}
+			vv := []string{"id", "status", "type", "name", "uptime"}
 			ok := false
 
 			for _, value := range vv {
 				if value == ctx.String("sort") {
 					ok = true
+					switch value {
+						case "id": sortBy = 0
+						case "status": sortBy = 1
+						case "type": sortBy = 2
+						case "name": sortBy = 3
+						case "uptime": sortBy = 4
+					}
 				}
 			}
 			if !ok {
@@ -52,6 +62,16 @@ var cliList = cli.Command{
 		v := vm.Get()
 
 		data = vm.Format(v)
+
+		if ctx.Bool("reverse") {
+			sort.Slice(data, func(i, j int) bool {
+				return data[i][sortBy] > data[j][sortBy] 
+			})
+		} else {
+			sort.Slice(data, func(i, j int) bool {
+				return data[i][sortBy] < data[j][sortBy] 
+			})
+		}
 
 		println("\n")
 

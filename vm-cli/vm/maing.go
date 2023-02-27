@@ -1,11 +1,12 @@
 package vm
 
 import (
-	"vm-cli/util"
 	"fmt"
 	"os"
 	"sort"
 	"sync"
+	"time"
+	"vm-cli/util"
 )
 
 
@@ -18,7 +19,7 @@ type VM struct{
 }
 
 type CT struct{
-    ID float64;
+    ID string;
     Status string;
     Type string;
     Name string;
@@ -78,7 +79,7 @@ func Get_Info_Container(in *[]CT) {
     for _, v := range result {
 
         vm := CT{
-            ID: v["vmid"].(float64),
+            ID: v["vmid"].(string),
             Status: v["status"].(string),
             Type: "LXC",
             Name: v["name"].(string),
@@ -94,12 +95,12 @@ func Format(in VM_CT) [][]string {
     for _, v := range in.VM {
         list := []string{}
 
-
-        list = append(list, fmt.Sprintf("%s", v.ID))
+        list = append(list, fmt.Sprintf("%.0f", v.ID))
         list = append(list, v.Status)
         list = append(list, v.Type)
         list = append(list, v.Name)
-        list = append(list, fmt.Sprintf("%s", v.Uptime))
+        t := time.Duration(int64(v.Uptime * float64(time.Second)))
+        list = append(list, t.String())
 
         out = append(out, list)
 
@@ -108,20 +109,19 @@ func Format(in VM_CT) [][]string {
     for _, v := range in.CT {
         list := []string{}
 
-
-        list = append(list, fmt.Sprintf("%s", v.ID))
+        list = append(list, v.ID)
         list = append(list, v.Status)
         list = append(list, v.Type)
         list = append(list, v.Name)
-        list = append(list, fmt.Sprintf("%s", v.Uptime))
+        t := time.Duration(int64(v.Uptime * float64(time.Second)))
+        list = append(list, t.String())
 
         out = append(out, list)
 
     }
 
-
     sort.Slice(out, func(i, j int) bool {
-        return out[i][0] < out[j][0]
+        return out[i][0] < out[j][0] 
     })
 
     return out
