@@ -1,24 +1,22 @@
 package util
 
 import (
-	"bytes"
+	// "bytes"
 	"log"
 	"os/exec"
-	"strings"
+	// "strings"
 )
 
-func Pvesh_get(url string) []map[string]interface{} {
-	var out bytes.Buffer
+func Pvesh_get(url string) any {
+	// var out bytes.Buffer;
 
     cmd := exec.Command("pvesh", "get", url, "--output-format", "json")
-    cmd.Stdin = strings.NewReader("a")
-    cmd.Stdout = &out
-    err := cmd.Run()
+    out, err := cmd.Output()
     if err != nil {
-        log.Fatal(err)
+        log.Fatal("Error Byte : ", err)
     }
 
-    result := ParseJSON(out)
+    result := ParseJSON_Byte(out)
 
     return result
 }

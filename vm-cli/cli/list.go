@@ -59,9 +59,9 @@ var cliList = cli.Command{
 
 		var data [][]string
 
-		v := vm.Get()
+		v := vm.Get_Machines()
 
-		data = vm.Format(v)
+		data = v.Format_machinesToString()
 
 		if ctx.Bool("reverse") {
 			sort.Slice(data, func(i, j int) bool {
