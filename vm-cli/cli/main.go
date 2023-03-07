@@ -19,9 +19,7 @@ func Init() {
         Commands: []*cli.Command{
             &cliList,
             &cliConfig,
-            {
-                Name: "start",
-            },
+            &cliStart,
             {
                 Name: "stop",
             },

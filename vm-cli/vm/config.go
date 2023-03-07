@@ -1,6 +1,8 @@
 package vm
 
-import "vm-cli/util"
+import (
+	"vm-cli/util"
+)
 
 type Config struct {
 	name    string
@@ -12,7 +14,9 @@ type Config struct {
 }
 
 func Get_VM_config(vmid string) Config {
-	config := util.Pvesh_get("/nodes/" + HOST + "/qemu/" + vmid + "/config").(map[string]interface{})
+	c, _ := util.Pvesh_get("/nodes/" + HOST + "/qemu/" + vmid + "/config")
+
+	config := c.(map[string]interface{})
 
 	return Config{
 		name: config["name"].(string),
@@ -25,10 +29,13 @@ func Get_VM_config(vmid string) Config {
 }
 
 func Get_CT_config(vmid string) Config {
-	config := util.Pvesh_get("/nodes/" + HOST + "/lxc/" + vmid + "/config").(map[string]interface{})
+	c, _ := util.Pvesh_get("/nodes/" + HOST + "/lxc/" + vmid + "/config")
+
+	config := c.(map[string]interface{})
+
 
 	return Config{
-		name: config["name"].(string),
+		name: config["hostname"].(string),
 		cores: int(config["cores"].(float64)),
 		ram: int(config["memory"].(float64)),
 		network: config["net0"].(string),
@@ -39,9 +46,9 @@ func Get_CT_config(vmid string) Config {
 }
 
 func Get_config(vmid string) Config {
-	type_machine := Get_Machines().Get_Machine(vmid).Type
+	machine, _ := Get_Machines().Get_Machine(vmid)
 
-	if type_machine == "QM" {
+	if machine.Type == "QM" {
 		return Get_VM_config(vmid)
 	}
 	return Get_CT_config(vmid)

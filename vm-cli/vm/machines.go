@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"time"
@@ -39,9 +40,9 @@ func Get_Machines() Machines {
 func Get_VM_info(in *[]Machine) {
 	defer wg.Done()
 
-	result := util.Pvesh_get("/nodes/"+HOST+"/qemu").([]interface{})
+	result, _ := util.Pvesh_get("/nodes/"+HOST+"/qemu")
 
-	for _, v := range result {
+	for _, v := range result.([]interface{}) {
 
 		v := v.(map[string]interface{})
 
@@ -59,9 +60,9 @@ func Get_VM_info(in *[]Machine) {
 func Get_CT_info(in *[]Machine) {
 	defer wg.Done()
 
-	result := util.Pvesh_get("/nodes/"+HOST+"/lxc").([]interface{})
+	result, _ := util.Pvesh_get("/nodes/"+HOST+"/lxc")
 
-	for _, v := range result {
+	for _, v := range result.([]interface{}) {
 
 		v := v.(map[string]interface{})
 
@@ -100,14 +101,15 @@ func (m Machines) Format_machinesToString() [][]string {
 	return out
 }
 
-func (m Machines) Get_Machine(vmid string) Machine {
+func (m Machines) Get_Machine(vmid string) (Machine, bool) {
 
 	for _, v := range m.machines {
 		if vmid == v.vmid {
-			return v
+			return v, true
 		}
 	}
 
-	return Machine{}
+	log.Fatal("| VM ID " + vmid + " Not existe")
+	return Machine{}, false
 }
 
