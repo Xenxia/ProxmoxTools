@@ -1,0 +1,11 @@
+{
+    "name_app": "test",
+    "index": "setup-update.py",
+    "icon": "",
+    "onefile": true,
+    "clean": false,
+
+    "compile_dir": [],
+    "add_data": [],
+    "hidden_import": []
+}

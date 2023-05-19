@@ -32,7 +32,7 @@ class Color:
 
 # /!\ don't modify below /!\
 
-VERSION: str ="V.1"
+VERSION: str ="V.2"
 FILE_VERSION: str ="version.yml"
 INSTALL_PATH: str ="/usr/local/bin/"
 TEMP_PATH: str ="/tmp/"
@@ -55,12 +55,12 @@ def setup() -> None:
         if keys == "software":
             for key, value in values.items():
                 tmp_dict: dict = {}
-                tmp_dict['Name'] = key
+                tmp_dict['Name'] = key if key != "" else "None"
                 tmp_dict['version'] = value['version']
                 tmp_dict['cmd'] = value['cmd']
                 tmp_dict['install_path'] = value['install_path']
                 tmp_dict['installed'] = False
-                tmp_dict['current'] = None
+                tmp_dict['current'] = "None"
                 tmp_dict['update'] = False
             
                 software.append(tmp_dict)
@@ -69,13 +69,13 @@ def setup() -> None:
 
         try:
             dico['current'] = check_output([dico['cmd']+" --version"], shell=True, stderr=DEVNULL).decode("utf-8").strip()
-        except CalledProcessError: 
-            dico['current'] = None
+        except CalledProcessError:
+            dico['current'] = "None"
 
         if os.path.exists(dico['install_path']+dico['cmd']):
             dico['installed'] = True
 
-            if dico['current'] != None and dico['current'] < dico['version']:
+            if dico['current'] != "None" and dico['current'] < dico['version']:
                 dico['update'] = True
                 list_soft.append(Color.ORANGE +"● "+ Color.CLEAR + dico['Name'] + " : " + dico['current'] + " ➤ " + dico['version'])
             else:
@@ -89,6 +89,8 @@ def download(url: str, dest_path: str = '', chunk_size: int = 1024) -> None:
         os.mkdir(dest_path)
 
     responce: Response = requests.get(url, stream=True)
+    if responce.status_code == 404:
+        raise ValueError(f"404 Not found : {url}")
     size: int = int(responce.headers['content-length'])
     filename: str = url.split('/')[-1]
 

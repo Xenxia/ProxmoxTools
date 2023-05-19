@@ -22,10 +22,11 @@ func Pvesh_get(url string) (any, bool) {
     return result, true
 }
 
-func Pvesh_post(url string, outputType string) (any, bool) {
+func Pvesh_post(url string, argsAdd []string, outputType string) (any, bool) {
 	// var out bytes.Buffer;
 
     cmd := exec.Command("pvesh", "create", url, "--output-format", "json")
+	cmd.Args = append(cmd.Args, argsAdd...)
     out, err := cmd.Output()
     if err != nil {
         log.Fatal("Pvesh_post | Error : ", err)

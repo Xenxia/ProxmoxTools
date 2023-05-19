@@ -1,11 +1,12 @@
 package cli
 
 import (
-    "log"
-    "os"
-    "time"
+	"fmt"
+	"log"
+	"os"
+	"time"
 
-    "github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v2"
 )
 
 func Init() {
@@ -20,15 +21,8 @@ func Init() {
             &cliList,
             &cliConfig,
             &cliStart,
-            {
-                Name: "stop",
-            },
-            {
-                Name: "reboot",
-            },
-            {
-                Name: "console",
-            },
+            &cliStop,
+            &cliReboot,
             {
                 Name: "delete",
             },
@@ -40,6 +34,10 @@ func Init() {
             },
         },
     }
+    cli.VersionPrinter = func(cCtx *cli.Context) {
+        fmt.Fprintf(cCtx.App.Writer, "%s\n", cCtx.App.Version)
+    }
+
 
     if err := app.Run(os.Args); err != nil {
         log.Fatal(err)

@@ -10,7 +10,7 @@ import (
 )
 
 type Machine struct{
-	vmid string;
+	Vmid string;
 	Status string;
 	Type string;
 	Name string;
@@ -18,7 +18,7 @@ type Machine struct{
 }
 
 type Machines struct {
-	machines []Machine
+	Machines []Machine
 }
 
 var wg sync.WaitGroup
@@ -32,8 +32,12 @@ func Get_Machines() Machines {
 
 	wg.Wait()
 
+	sort.Slice(ms, func(i, j int) bool {
+		return ms[i].Vmid < ms[j].Vmid
+	})
+
 	return Machines{
-		machines: ms,
+		Machines: ms,
 	}
 }
 
@@ -47,7 +51,7 @@ func Get_VM_info(in *[]Machine) {
 		v := v.(map[string]interface{})
 
 		vm := Machine{
-			vmid: fmt.Sprintf("%v", v["vmid"]),
+			Vmid: fmt.Sprintf("%v", v["vmid"]),
 			Status: v["status"].(string),
 			Type: "QM",
 			Name: v["name"].(string),
@@ -67,7 +71,7 @@ func Get_CT_info(in *[]Machine) {
 		v := v.(map[string]interface{})
 
 		vm := Machine{
-			vmid: fmt.Sprintf("%v", v["vmid"]),
+			Vmid: fmt.Sprintf("%v", v["vmid"]),
 			Status: v["status"].(string),
 			Type: "LXC",
 			Name: v["name"].(string),
@@ -80,10 +84,10 @@ func Get_CT_info(in *[]Machine) {
 func (m Machines) Format_machinesToString() [][]string {
 	var out [][]string
 
-	for _, v := range m.machines {
+	for _, v := range m.Machines {
 		list := []string{}
 
-		list = append(list, v.vmid)
+		list = append(list, v.Vmid)
 		list = append(list, v.Status)
 		list = append(list, v.Type)
 		list = append(list, v.Name)
@@ -103,13 +107,26 @@ func (m Machines) Format_machinesToString() [][]string {
 
 func (m Machines) Get_Machine(vmid string) (Machine, bool) {
 
-	for _, v := range m.machines {
-		if vmid == v.vmid {
+	for _, v := range m.Machines {
+		if vmid == v.Vmid {
 			return v, true
 		}
 	}
 
 	log.Fatal("| VM ID " + vmid + " Not existe")
 	return Machine{}, false
+}
+
+func (m *Machine) Update() {
+
+	var result any
+
+	if m.Type == "QM" {
+		result, _ = util.Pvesh_get("/nodes/"+HOST+"/qemu/"+m.Vmid+"/status/current")
+	} else {
+		result, _ = util.Pvesh_get("/nodes/"+HOST+"/lxc/"+m.Vmid+"/status/current")
+	}
+
+	m.Status = result.(map[string]any)["status"].(string)
 }
 
