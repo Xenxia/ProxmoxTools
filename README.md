@@ -1,9 +1,11 @@
+<div align="center">
+
+
 # ProxMoxTools
 
+</div>
+
 ## ProxmoxTools is a list of small utilities for proxmox
-
-
-<!-- ![GitHub release (by tag)](https://img.shields.io/github/downloads/Xenxia/ProxmoxTools/Download/total?color=229922&label=Download&style=flat-square) -->
 
 
 <details>
@@ -11,8 +13,10 @@
 
 <br/>
 
-![Python](https://img.shields.io/static/v1?label=Python&message=v3.7%5E&color=5c5c5c&labelColor=3470a2&style=flat-square&logo=Python&logoColor=ffd13e)
-![proxmox](https://img.shields.io/static/v1?label=Proxmox&message=v6.x%5E&color=5c5c5c&labelColor=E57000&style=flat-square&logo=proxmox&logoColor=000000)
+![proxmox](https://img.shields.io/static/v1?label=Proxmox&message=v7.x%5E&color=5c5c5c&labelColor=E57000&style=flat-square&logo=proxmox&logoColor=000000)
+
+<img src="https://github.com/Xenxia/ProxmoxTools/blob/main/img/vm-list.gif?raw=true" alt="" />
+
 
 </details>
 
@@ -23,4 +27,6 @@
 - [x] : Create an install/update script
 - [x] : Create binary
 - [x] : Redo the install/update script
+
+
 
